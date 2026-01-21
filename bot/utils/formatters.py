@@ -56,7 +56,7 @@ def format_listing_message(listing: Dict) -> str:
         
         if source == 'Onliner' and '/ak/apartments/' in url:
             is_listing_url = True
-        elif source == 'Kufar' and '/v/' in url:
+        elif source == 'Kufar' and ('/v/' in url or '/vi/' in url):
             is_listing_url = True
         elif source == 'Realt.by' and ('/object/' in url or '/rent/' in url):
             is_listing_url = True

@@ -140,7 +140,7 @@ class KufarParser(BaseParser):
                     else:
                         # Если контейнер не найден, ищем данные в тексте страницы по ID
                         # Пробуем найти упоминание этого ID в тексте или скриптах
-                        href = f'https://re.kufar.by/v/{ad_id}'
+                        href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{ad_id}'
                         # Ищем в тексте страницы данные об этом объявлении
                         # (Kufar может хранить данные в JSON в скриптах)
                         listing_data = None
@@ -265,7 +265,7 @@ class KufarParser(BaseParser):
                         # Очищаем ID от лишних символов (оставляем только цифры)
                         listing_id_clean = ''.join(c for c in listing_path if c.isdigit())
                         if listing_id_clean:
-                            href = f'https://re.kufar.by/v/{listing_id_clean}'
+                            href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{listing_id_clean}'
                         else:
                             return None
             else:
@@ -398,7 +398,7 @@ class KufarParser(BaseParser):
                     data_id_clean = ''.join(c for c in data_id_clean if c.isdigit())
                     if data_id_clean:
                         int(data_id_clean)  # Проверяем, что это число
-                        href = f'https://re.kufar.by/v/{data_id_clean}'
+                        href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{data_id_clean}'
                         data_id = data_id_clean
                     else:
                         data_id = None
@@ -443,7 +443,7 @@ class KufarParser(BaseParser):
                         # Очищаем ID от лишних символов (оставляем только цифры)
                         listing_id_clean = ''.join(c for c in listing_path if c.isdigit())
                         if listing_id_clean:
-                            href = f'https://re.kufar.by/v/{listing_id_clean}'
+                            href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{listing_id_clean}'
                         else:
                             return None
             
@@ -455,7 +455,7 @@ class KufarParser(BaseParser):
                     data_id_clean = ''.join(c for c in data_id_clean if c.isdigit())
                     if data_id_clean:
                         int(data_id_clean)  # Проверяем, что это число
-                        href = f'https://re.kufar.by/v/{data_id_clean}'
+                        href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{data_id_clean}'
                     else:
                         return None
                 except (ValueError, TypeError):
@@ -562,7 +562,7 @@ class KufarParser(BaseParser):
                 return None
             
             # Формируем правильную ссылку
-            href = f'https://re.kufar.by/v/{ad_id_clean}'
+            href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{ad_id_clean}'
             
             # Извлекаем данные из JSON
             subject = ad_data.get('subject', '') or ad_data.get('title', '') or ad_data.get('name', '')
