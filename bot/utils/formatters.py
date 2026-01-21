@@ -39,10 +39,10 @@ def format_listing_message(listing: Dict) -> str:
     else:
         text += "<b>Комнаты:</b> Не указано\n"
     
-    if listing.get('price_byn'):
-        text += f"<b>Цена:</b> {int(listing['price_byn'])} BYN\n"
     if listing.get('price_usd'):
         text += f"<b>Цена:</b> {int(listing['price_usd'])} $\n"
+    else:
+        text += "<b>Цена:</b> Не указано\n"
     
     text += f"<b>Арендодатель:</b> {listing.get('landlord', 'Не указано')}\n"
     text += f"<b>Источник:</b> {listing['source']}\n"
