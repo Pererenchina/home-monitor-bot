@@ -1,0 +1,18 @@
+# Скрипт для запуска бота
+# Скопируйте этот файл в start_bot.ps1 и укажите ваш токен
+
+# Загружаем переменные из .env файла
+if (Test-Path .env) {
+    Get-Content .env | ForEach-Object {
+        if ($_ -match '^\s*([^#][^=]*)\s*=\s*(.*)\s*$') {
+            $name = $matches[1].Trim()
+            $value = $matches[2].Trim()
+            [Environment]::SetEnvironmentVariable($name, $value, "Process")
+        }
+    }
+} else {
+    Write-Host "ВНИМАНИЕ: Файл .env не найден! Создайте файл .env с токеном TELEGRAM_BOT_TOKEN"
+    exit 1
+}
+
+python main.py

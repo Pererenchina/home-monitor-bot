@@ -31,3 +31,6 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Scripts with sensitive data
+start_bot.ps1
