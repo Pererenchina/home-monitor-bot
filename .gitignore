@@ -34,3 +34,7 @@ logs/
 
 # Scripts with sensitive data
 start_bot.ps1
+
+# Logo generation scripts
+create_logo.py
+create_logo_simple.py

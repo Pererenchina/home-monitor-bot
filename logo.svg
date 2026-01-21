@@ -1,0 +1,46 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Бардовый фон -->
+  <rect width="512" height="512" fill="#722F37"/>
+  
+  <!-- Белый круг -->
+  <circle cx="256" cy="256" r="216" fill="white" stroke="white" stroke-width="2"/>
+  
+  <!-- Бык (белый силуэт на бардовом фоне внутри круга) -->
+  <g fill="#722F37" stroke="#722F37" stroke-width="3">
+    <!-- Тело быка -->
+    <ellipse cx="256" cy="280" rx="80" ry="60" fill="#722F37"/>
+    
+    <!-- Голова быка -->
+    <circle cx="200" cy="220" r="50" fill="#722F37"/>
+    
+    <!-- Рога -->
+    <!-- Левый рог -->
+    <path d="M 170 200 L 140 160" stroke="#722F37" stroke-width="18" stroke-linecap="round"/>
+    <!-- Правый рог -->
+    <path d="M 230 200 L 260 160" stroke="#722F37" stroke-width="18" stroke-linecap="round"/>
+    
+    <!-- Уши -->
+    <ellipse cx="180" cy="210" rx="15" ry="20" fill="#722F37" transform="rotate(-30 180 210)"/>
+    <ellipse cx="220" cy="210" rx="15" ry="20" fill="#722F37" transform="rotate(30 220 210)"/>
+    
+    <!-- Глаз -->
+    <circle cx="195" cy="225" r="8" fill="white"/>
+    
+    <!-- Нос -->
+    <ellipse cx="200" cy="240" rx="12" ry="8" fill="#722F37"/>
+    
+    <!-- Хвост -->
+    <path d="M 336 280 Q 380 250 400 240" stroke="#722F37" stroke-width="15" fill="none" stroke-linecap="round"/>
+    <path d="M 400 240 L 410 230" stroke="#722F37" stroke-width="12" stroke-linecap="round"/>
+    
+    <!-- Ноги -->
+    <!-- Передняя левая -->
+    <rect x="200" y="340" width="15" height="60" fill="#722F37" rx="5"/>
+    <!-- Передняя правая -->
+    <rect x="230" y="340" width="15" height="60" fill="#722F37" rx="5"/>
+    <!-- Задняя левая -->
+    <rect x="280" y="340" width="15" height="60" fill="#722F37" rx="5"/>
+    <!-- Задняя правая -->
+    <rect x="310" y="340" width="15" height="60" fill="#722F37" rx="5"/>
+  </g>
+</svg>
