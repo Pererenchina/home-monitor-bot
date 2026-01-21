@@ -59,14 +59,23 @@ class Database:
                     )
                 ''')
                 
-                # Таблица для хранения настроек пользователей
+                # Таблица для хранения фильтров пользователей (поддержка нескольких фильтров)
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS user_filters (
-                        user_id INTEGER PRIMARY KEY,
-                        filters TEXT,
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        filter_name TEXT NOT NULL DEFAULT 'Фильтр',
+                        filters TEXT NOT NULL,
+                        is_active INTEGER DEFAULT 1,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
+                ''')
+                
+                # Индекс для быстрого поиска фильтров пользователя
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_user_filters_user_id 
+                    ON user_filters(user_id)
                 ''')
                 
                 conn.commit()
@@ -178,54 +187,190 @@ class Database:
         except (sqlite3.Error, json.JSONDecodeError) as e:
             logger.error(f"Ошибка отметки объявления как отправленного: {e}")
     
-    def save_user_filters(self, user_id: int, filters: Dict) -> None:
+    def add_user_filter(
+        self,
+        user_id: int,
+        filter_name: str,
+        filters: Dict
+    ) -> int:
         """
-        Сохранить фильтры пользователя.
+        Добавить новый фильтр пользователя.
         
         Args:
             user_id: ID пользователя
+            filter_name: Название фильтра
             filters: Словарь с фильтрами
+        
+        Returns:
+            int: ID созданного фильтра
         """
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT OR REPLACE INTO user_filters (user_id, filters, updated_at)
-                    VALUES (?, ?, ?)
-                ''', (user_id, json.dumps(filters), datetime.now()))
+                    INSERT INTO user_filters (user_id, filter_name, filters, updated_at)
+                    VALUES (?, ?, ?, ?)
+                ''', (user_id, filter_name, json.dumps(filters), datetime.now()))
                 conn.commit()
+                return cursor.lastrowid
         except (sqlite3.Error, json.JSONEncodeError) as e:
-            logger.error(f"Ошибка сохранения фильтров: {e}")
+            logger.error(f"Ошибка добавления фильтра: {e}")
             raise
     
-    def get_user_filters(self, user_id: int) -> Optional[Dict]:
+    def get_user_filters(self, user_id: int) -> List[Dict]:
         """
-        Получить фильтры пользователя.
+        Получить все фильтры пользователя.
         
         Args:
             user_id: ID пользователя
         
         Returns:
-            Optional[Dict]: Словарь с фильтрами или None
+            List[Dict]: Список фильтров с ключами: id, filter_name, filters, is_active
         """
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    SELECT filters FROM user_filters WHERE user_id = ?
+                    SELECT id, filter_name, filters, is_active, created_at, updated_at
+                    FROM user_filters 
+                    WHERE user_id = ?
+                    ORDER BY created_at DESC
                 ''', (user_id,))
+                
+                results = cursor.fetchall()
+                filters_list = []
+                for row in results:
+                    filters_list.append({
+                        'id': row[0],
+                        'filter_name': row[1],
+                        'filters': json.loads(row[2]),
+                        'is_active': bool(row[3]),
+                        'created_at': row[4],
+                        'updated_at': row[5]
+                    })
+                return filters_list
+        except (sqlite3.Error, json.JSONDecodeError) as e:
+            logger.error(f"Ошибка получения фильтров: {e}")
+            return []
+    
+    def get_user_filter_by_id(self, filter_id: int, user_id: int) -> Optional[Dict]:
+        """
+        Получить фильтр по ID.
+        
+        Args:
+            filter_id: ID фильтра
+            user_id: ID пользователя (для проверки прав)
+        
+        Returns:
+            Optional[Dict]: Фильтр или None
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, filter_name, filters, is_active
+                    FROM user_filters 
+                    WHERE id = ? AND user_id = ?
+                ''', (filter_id, user_id))
                 
                 result = cursor.fetchone()
                 if result:
-                    return json.loads(result[0])
+                    return {
+                        'id': result[0],
+                        'filter_name': result[1],
+                        'filters': json.loads(result[2]),
+                        'is_active': bool(result[3])
+                    }
                 return None
         except (sqlite3.Error, json.JSONDecodeError) as e:
-            logger.error(f"Ошибка получения фильтров: {e}")
+            logger.error(f"Ошибка получения фильтра: {e}")
             return None
+    
+    def update_user_filter(
+        self,
+        filter_id: int,
+        user_id: int,
+        filter_name: Optional[str] = None,
+        filters: Optional[Dict] = None,
+        is_active: Optional[bool] = None
+    ) -> bool:
+        """
+        Обновить фильтр пользователя.
+        
+        Args:
+            filter_id: ID фильтра
+            user_id: ID пользователя
+            filter_name: Новое название (опционально)
+            filters: Новые фильтры (опционально)
+            is_active: Статус активности (опционально)
+        
+        Returns:
+            bool: True если обновлено успешно
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                updates = []
+                params = []
+                
+                if filter_name is not None:
+                    updates.append("filter_name = ?")
+                    params.append(filter_name)
+                
+                if filters is not None:
+                    updates.append("filters = ?")
+                    params.append(json.dumps(filters))
+                
+                if is_active is not None:
+                    updates.append("is_active = ?")
+                    params.append(1 if is_active else 0)
+                
+                if not updates:
+                    return False
+                
+                updates.append("updated_at = ?")
+                params.append(datetime.now())
+                params.extend([filter_id, user_id])
+                
+                query = f'''
+                    UPDATE user_filters 
+                    SET {', '.join(updates)}
+                    WHERE id = ? AND user_id = ?
+                '''
+                cursor.execute(query, params)
+                conn.commit()
+                return cursor.rowcount > 0
+        except (sqlite3.Error, json.JSONEncodeError) as e:
+            logger.error(f"Ошибка обновления фильтра: {e}")
+            return False
+    
+    def delete_user_filter(self, filter_id: int, user_id: int) -> bool:
+        """
+        Удалить фильтр пользователя.
+        
+        Args:
+            filter_id: ID фильтра
+            user_id: ID пользователя
+        
+        Returns:
+            bool: True если удалено успешно
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    DELETE FROM user_filters 
+                    WHERE id = ? AND user_id = ?
+                ''', (filter_id, user_id))
+                conn.commit()
+                return cursor.rowcount > 0
+        except sqlite3.Error as e:
+            logger.error(f"Ошибка удаления фильтра: {e}")
+            return False
     
     def get_all_users_with_filters(self) -> List[int]:
         """
-        Получить список всех пользователей с настроенными фильтрами.
+        Получить список всех пользователей с активными фильтрами.
         
         Returns:
             List[int]: Список ID пользователей
@@ -233,9 +378,46 @@ class Database:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT user_id FROM user_filters')
+                cursor.execute('''
+                    SELECT DISTINCT user_id 
+                    FROM user_filters 
+                    WHERE is_active = 1
+                ''')
                 results = cursor.fetchall()
                 return [row[0] for row in results]
         except sqlite3.Error as e:
             logger.error(f"Ошибка получения списка пользователей: {e}")
+            return []
+    
+    def get_active_filters_for_user(self, user_id: int) -> List[Dict]:
+        """
+        Получить активные фильтры пользователя.
+        
+        Args:
+            user_id: ID пользователя
+        
+        Returns:
+            List[Dict]: Список активных фильтров
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, filter_name, filters
+                    FROM user_filters 
+                    WHERE user_id = ? AND is_active = 1
+                    ORDER BY created_at DESC
+                ''', (user_id,))
+                
+                results = cursor.fetchall()
+                filters_list = []
+                for row in results:
+                    filters_list.append({
+                        'id': row[0],
+                        'filter_name': row[1],
+                        'filters': json.loads(row[2])
+                    })
+                return filters_list
+        except (sqlite3.Error, json.JSONDecodeError) as e:
+            logger.error(f"Ошибка получения активных фильтров: {e}")
             return []

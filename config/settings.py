@@ -17,6 +17,7 @@ class Settings:
         self.onliner_url: str = "https://r.onliner.by/ak/"
         self.kufar_url: str = "https://re.kufar.by/"
         self.realt_url: str = "https://realt.by/"
+        self.domovita_url: str = "https://domovita.by/minsk/flats/rent"
         
         # Интервал проверки новых объявлений (в секундах)
         self.check_interval: int = int(os.getenv('CHECK_INTERVAL', '300'))  # 5 минут

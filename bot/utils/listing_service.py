@@ -2,7 +2,7 @@
 import logging
 from typing import List, Dict
 
-from parsers import OnlinerParser, KufarParser, RealtParser
+from parsers import OnlinerParser, KufarParser, RealtParser, DomovitaParser
 from filters import ListingFilter
 from database import Database
 from config import settings
@@ -24,6 +24,7 @@ class ListingService:
         self.onliner_parser = OnlinerParser()
         self.kufar_parser = KufarParser()
         self.realt_parser = RealtParser()
+        self.domovita_parser = DomovitaParser()
     
     async def fetch_and_filter_listings(
         self,
@@ -42,32 +43,34 @@ class ListingService:
         """
         all_listings: List[Dict] = []
         
-        # Парсинг с разных сайтов
-        sources = filter_obj.filters.get('sources', [])
+        # Парсинг со всех сайтов (всегда парсим все источники)
+        try:
+            listings = await self.onliner_parser.parse_listings(settings.onliner_url)
+            all_listings.extend(listings)
+            logger.info(f"Получено {len(listings)} объявлений с Onliner")
+        except Exception as e:
+            logger.error(f"Ошибка парсинга Onliner: {e}")
         
-        if 'Onliner' in sources:
-            try:
-                listings = await self.onliner_parser.parse_listings(settings.onliner_url)
-                all_listings.extend(listings)
-                logger.info(f"Получено {len(listings)} объявлений с Onliner")
-            except Exception as e:
-                logger.error(f"Ошибка парсинга Onliner: {e}")
+        try:
+            listings = await self.kufar_parser.parse_listings(settings.kufar_url)
+            all_listings.extend(listings)
+            logger.info(f"Получено {len(listings)} объявлений с Kufar")
+        except Exception as e:
+            logger.error(f"Ошибка парсинга Kufar: {e}")
         
-        if 'Kufar' in sources:
-            try:
-                listings = await self.kufar_parser.parse_listings(settings.kufar_url)
-                all_listings.extend(listings)
-                logger.info(f"Получено {len(listings)} объявлений с Kufar")
-            except Exception as e:
-                logger.error(f"Ошибка парсинга Kufar: {e}")
+        try:
+            listings = await self.realt_parser.parse_listings(settings.realt_url)
+            all_listings.extend(listings)
+            logger.info(f"Получено {len(listings)} объявлений с Realt.by")
+        except Exception as e:
+            logger.error(f"Ошибка парсинга Realt.by: {e}")
         
-        if 'Realt.by' in sources:
-            try:
-                listings = await self.realt_parser.parse_listings(settings.realt_url)
-                all_listings.extend(listings)
-                logger.info(f"Получено {len(listings)} объявлений с Realt.by")
-            except Exception as e:
-                logger.error(f"Ошибка парсинга Realt.by: {e}")
+        try:
+            listings = await self.domovita_parser.parse_listings(settings.domovita_url)
+            all_listings.extend(listings)
+            logger.info(f"Получено {len(listings)} объявлений с Domovita")
+        except Exception as e:
+            logger.error(f"Ошибка парсинга Domovita: {e}")
         
         # Фильтрация и проверка на новые объявления
         filtered_listings: List[Dict] = []
@@ -95,4 +98,5 @@ class ListingService:
             f"для пользователя {user_id}"
         )
         
-        return filtered_listings
+        # Ограничиваем до 15 последних объявлений
+        return filtered_listings[:15]

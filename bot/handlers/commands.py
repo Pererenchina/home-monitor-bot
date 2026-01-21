@@ -7,6 +7,7 @@ from database import Database
 from filters import ListingFilter, get_default_filters
 from bot.utils.listing_service import ListingService
 from bot.utils.formatters import format_listing_message
+from bot.utils.keyboard import get_main_keyboard
 from telegram.constants import ParseMode
 
 logger = logging.getLogger(__name__)
@@ -47,13 +48,11 @@ async def start(
     welcome_text = (
         "🏠 Добро пожаловать в бот для поиска квартир!\n\n"
         "Я помогу вам найти подходящие объявления об аренде квартир "
-        "на сайтах Onliner, Kufar и Realt.by.\n\n"
-        "Используйте команды:\n"
-        "/filters - настроить фильтры поиска\n"
-        "/check - проверить новые объявления сейчас\n"
-        "/status - посмотреть текущие настройки"
+        "на сайтах Onliner, Kufar, Realt.by и Domovita.by.\n\n"
+        "Используйте кнопки внизу для управления ботом:"
     )
-    await update.message.reply_text(welcome_text)
+    keyboard = get_main_keyboard()
+    await update.message.reply_text(welcome_text, reply_markup=keyboard)
 
 
 async def show_filters_menu(
@@ -79,11 +78,14 @@ async def show_filters_menu(
     text += f"💰 Мин. цена (USD): {current_filters.get('min_price_usd', 'Не важно') or 'Не важно'}\n"
     text += f"💰 Макс. цена (USD): {current_filters.get('max_price_usd', 'Не важно') or 'Не важно'}\n"
     text += f"👤 Арендодатель: {current_filters.get('landlord', 'Не важно') or 'Не важно'}\n"
-    text += f"📰 Источники: {', '.join(current_filters.get('sources', []))}\n\n"
+    text += f"🏙️ Город: {current_filters.get('city', 'Не важно') or 'Не важно'}\n\n"
     text += "Выберите параметр для изменения:"
     
     keyboard = create_filters_keyboard(current_filters)
+    main_keyboard = get_main_keyboard()
     await update.message.reply_text(text, reply_markup=keyboard)
+    # Сохраняем основную клавиатуру для возврата
+    context.user_data['main_keyboard'] = main_keyboard
 
 
 async def check_listings(
@@ -106,8 +108,10 @@ async def check_listings(
     
     user_filters = db.get_user_filters(user_id)
     if not user_filters:
+        keyboard = get_main_keyboard()
         await update.message.reply_text(
-            "⚠️ Сначала настройте фильтры с помощью команды /filters"
+            "⚠️ Сначала настройте фильтры! Нажмите кнопку '⚙️ Настроить фильтры'",
+            reply_markup=keyboard
         )
         return
     
@@ -150,8 +154,10 @@ async def show_status(
     current_filters = db.get_user_filters(user_id)
     
     if not current_filters:
+        keyboard = get_main_keyboard()
         await update.message.reply_text(
-            "⚠️ Фильтры не настроены. Используйте /filters"
+            "⚠️ Фильтры не настроены. Нажмите кнопку '⚙️ Настроить фильтры'",
+            reply_markup=keyboard
         )
         return
     
@@ -160,6 +166,7 @@ async def show_status(
     text += f"💰 Мин. цена (USD): {current_filters.get('min_price_usd', 'Не важно') or 'Не важно'}\n"
     text += f"💰 Макс. цена (USD): {current_filters.get('max_price_usd', 'Не важно') or 'Не важно'}\n"
     text += f"👤 Арендодатель: {current_filters.get('landlord', 'Не важно') or 'Не важно'}\n"
-    text += f"📰 Источники: {', '.join(current_filters.get('sources', []))}\n"
+    text += f"🏙️ Город: {current_filters.get('city', 'Не важно') or 'Не важно'}\n"
     
-    await update.message.reply_text(text)
+    keyboard = get_main_keyboard()
+    await update.message.reply_text(text, reply_markup=keyboard)

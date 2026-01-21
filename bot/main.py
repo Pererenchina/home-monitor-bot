@@ -1,7 +1,8 @@
 """Основной модуль бота."""
 import asyncio
 import logging
-from telegram.ext import Application
+from telegram import Update
+from telegram.ext import Application, ContextTypes
 from telegram.constants import ParseMode
 
 from config import settings
@@ -15,11 +16,7 @@ from bot.handlers import (
 from bot.utils.listing_service import ListingService
 from bot.utils.formatters import format_listing_message
 
-# Настройка логирования
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# Логирование уже настроено в main.py
 logger = logging.getLogger(__name__)
 
 
@@ -35,18 +32,34 @@ async def periodic_check(context) -> None:
     users = db.get_all_users_with_filters()
     
     for user_id in users:
-        user_filters = db.get_user_filters(user_id)
-        if not user_filters:
+        # Получаем все активные фильтры пользователя
+        active_filters = db.get_active_filters_for_user(user_id)
+        if not active_filters:
             continue
         
-        filter_obj = ListingFilter(user_filters)
-        new_listings = await listing_service.fetch_and_filter_listings(
-            filter_obj,
-            user_id
-        )
+        # Проверяем все активные фильтры
+        all_listings = []
+        for filter_item in active_filters:
+            filter_obj = ListingFilter(filter_item['filters'])
+            listings = await listing_service.fetch_and_filter_listings(
+                filter_obj,
+                user_id
+            )
+            all_listings.extend(listings)
         
-        if new_listings:
-            for listing in new_listings:
+        # Убираем дубликаты
+        seen_ids = set()
+        unique_listings = []
+        for listing in all_listings:
+            if listing['listing_id'] not in seen_ids:
+                seen_ids.add(listing['listing_id'])
+                unique_listings.append(listing)
+        
+        # Ограничиваем до 15 объявлений
+        listings_to_send = unique_listings[-15:] if len(unique_listings) > 15 else unique_listings
+        
+        if listings_to_send:
+            for listing in listings_to_send:
                 try:
                     message_text = format_listing_message(listing)
                     await context.bot.send_message(
@@ -81,7 +94,24 @@ def create_application() -> Application:
     # Регистрация обработчиков
     setup_command_handlers(application, db, listing_service)
     setup_callback_handlers(application, db)
-    setup_message_handlers(application, db)
+    setup_message_handlers(application, db, listing_service)
+    
+    # Обработчик ошибок
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработчик ошибок."""
+        logger.error(
+            f"Exception while handling an update: {context.error}",
+            exc_info=context.error
+        )
+        if update and isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(
+                    "❌ Произошла ошибка. Попробуйте позже или обратитесь к администратору."
+                )
+            except Exception:
+                pass
+    
+    application.add_error_handler(error_handler)
     
     # Периодическая проверка
     job_queue = application.job_queue

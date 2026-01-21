@@ -76,26 +76,48 @@ class BaseParser(ABC):
         price_byn: Optional[float] = None
         price_usd: Optional[float] = None
         
-        # Нормализация текста
-        normalized_text = text.replace(',', '').replace('\xa0', ' ')
+        # Нормализация текста - более агрессивная
+        normalized_text = text.replace(',', '').replace('\xa0', ' ').replace('\u2009', ' ').replace('\u00a0', ' ')
+        # Убираем множественные пробелы
+        normalized_text = ' '.join(normalized_text.split())
         
-        # Поиск USD
-        usd_pattern = r'(\d+(?:\s?\d+)*(?:\.\d+)?)\s*\$'
-        usd_match = re.search(usd_pattern, normalized_text)
-        if usd_match:
-            try:
-                price_usd = float(usd_match.group(1).replace(' ', ''))
-            except ValueError:
-                logger.debug(f"Не удалось распарсить USD цену: {usd_match.group(1)}")
+        # Поиск USD - улучшенные паттерны
+        usd_patterns = [
+            r'(\d+(?:\s?\d+)*(?:\.\d+)?)\s*\$',  # 500 $ или 500$
+            r'\$\s*(\d+(?:\s?\d+)*(?:\.\d+)?)',  # $ 500
+            r'(\d+(?:\s?\d+)*(?:\.\d+)?)\s*USD',  # 500 USD
+            r'USD\s*(\d+(?:\s?\d+)*(?:\.\d+)?)',  # USD 500
+            r'(\d+(?:\s?\d+)*(?:\.\d+)?)\s*долл',  # 500 долл
+        ]
+        for pattern in usd_patterns:
+            usd_match = re.search(pattern, normalized_text, re.IGNORECASE)
+            if usd_match:
+                try:
+                    price_str = usd_match.group(1).replace(' ', '').replace('\xa0', '')
+                    price_usd = float(price_str)
+                    # Проверяем разумность цены (не больше 10000 для аренды)
+                    if price_usd > 0 and price_usd < 10000:
+                        break
+                except ValueError:
+                    continue
         
-        # Поиск BYN
-        byn_pattern = r'(\d+(?:\s?\d+)*(?:\.\d+)?)\s*(?:BYN|р\.|руб|бел\.?\s*руб)'
-        byn_match = re.search(byn_pattern, normalized_text, re.IGNORECASE)
-        if byn_match:
-            try:
-                price_byn = float(byn_match.group(1).replace(' ', ''))
-            except ValueError:
-                logger.debug(f"Не удалось распарсить BYN цену: {byn_match.group(1)}")
+        # Поиск BYN - улучшенные паттерны
+        byn_patterns = [
+            r'(\d+(?:\s?\d+)*(?:\.\d+)?)\s*(?:BYN|р\.|руб|бел\.?\s*руб)',  # 500 BYN
+            r'(\d+(?:\s?\d+)*(?:\.\d+)?)\s*р/мес',  # 500 р/мес
+            r'(\d+(?:\s?\d+)*(?:\.\d+)?)\s*руб/мес',  # 500 руб/мес
+        ]
+        for pattern in byn_patterns:
+            byn_match = re.search(pattern, normalized_text, re.IGNORECASE)
+            if byn_match:
+                try:
+                    price_str = byn_match.group(1).replace(' ', '').replace('\xa0', '')
+                    price_byn = float(price_str)
+                    # Проверяем разумность цены (не больше 10000 для аренды)
+                    if price_byn > 0 and price_byn < 10000:
+                        break
+                except ValueError:
+                    continue
         
         return price_byn, price_usd
     
@@ -111,16 +133,23 @@ class BaseParser(ABC):
         """
         # Поиск паттернов: "1-комнатная", "2 комнаты", "3-комн" и т.д.
         patterns = [
-            r'(\d+)[-\s]?комнатн',
-            r'(\d+)[-\s]?комн',
-            r'(\d+)\s*комнат',
+            r'(\d+)[-\s]?комнатн',  # 1-комнатная, 2 комнатная
+            r'(\d+)[-\s]?комн',  # 1-комн, 2 комн
+            r'(\d+)\s*комнат',  # 1 комнат, 2 комнаты
+            r'(\d+)\s*к\.',  # 1 к., 2 к.
+            r'(\d+)\s*к\b',  # 1к, 2к (отдельное слово)
+            r'(\d+)[-\s]?к\.?\s*квартир',  # 1-к квартира, 2к квартира
+            r'(\d+)[-\s]?комнатная',  # 1-комнатная (более точный паттерн)
         ]
         
         for pattern in patterns:
             match = re.search(pattern, text.lower())
             if match:
                 try:
-                    return int(match.group(1))
+                    rooms = int(match.group(1))
+                    # Проверяем разумность (1-10 комнат)
+                    if 1 <= rooms <= 10:
+                        return rooms
                 except ValueError:
                     continue
         

@@ -14,8 +14,7 @@ def get_default_filters() -> Dict:
         'min_price_usd': None,
         'max_price_usd': None,
         'landlord': None,
-        'sources': ['Onliner', 'Kufar', 'Realt.by'],
-        'address_keywords': []
+        'city': None
     }
 
 
@@ -41,41 +40,42 @@ class ListingFilter:
         Returns:
             bool: True если объявление соответствует всем фильтрам
         """
-        # Фильтр по количеству комнат
+        # Фильтр по количеству комнат (обязательный)
         if 'rooms' in self.filters and self.filters['rooms'] is not None:
-            if listing.get('rooms') != self.filters['rooms']:
+            listing_rooms = listing.get('rooms')
+            if listing_rooms != self.filters['rooms']:
                 return False
         
-        # Фильтр по минимальной цене (USD)
+        # Фильтр по минимальной цене (USD) - более мягкий
         if 'min_price_usd' in self.filters and self.filters['min_price_usd'] is not None:
             listing_price = listing.get('price_usd')
-            if listing_price is None or listing_price < self.filters['min_price_usd']:
+            # Если цена не указана, пропускаем фильтр (может быть указана в BYN)
+            if listing_price is not None and listing_price < self.filters['min_price_usd']:
                 return False
         
-        # Фильтр по максимальной цене (USD)
+        # Фильтр по максимальной цене (USD) - более мягкий
         if 'max_price_usd' in self.filters and self.filters['max_price_usd'] is not None:
             listing_price = listing.get('price_usd')
-            if listing_price is None or listing_price > self.filters['max_price_usd']:
+            # Если цена не указана, пропускаем фильтр (может быть указана в BYN)
+            if listing_price is not None and listing_price > self.filters['max_price_usd']:
                 return False
         
-        # Фильтр по типу арендодателя
+        # Фильтр по типу арендодателя (обязательный)
         if 'landlord' in self.filters and self.filters['landlord'] is not None:
             listing_landlord = listing.get('landlord', '').lower()
             filter_landlord = self.filters['landlord'].lower()
             if listing_landlord != filter_landlord:
                 return False
         
-        # Фильтр по источникам
-        if 'sources' in self.filters and self.filters['sources']:
-            listing_source = listing.get('source', '')
-            if listing_source not in self.filters['sources']:
-                return False
-        
-        # Фильтр по району/адресу (поиск подстроки)
-        if 'address_keywords' in self.filters and self.filters['address_keywords']:
+        # Фильтр по городу (более мягкий - если адрес не указан, пропускаем)
+        if 'city' in self.filters and self.filters['city'] is not None:
             address = listing.get('address', '').lower()
-            keywords = [kw.lower() for kw in self.filters['address_keywords']]
-            if not any(keyword in address for keyword in keywords):
+            city = self.filters['city'].lower()
+            # Если адрес не указан или "адрес не указан", пропускаем фильтр по городу
+            if not address or 'адрес не указан' in address:
+                # Пропускаем фильтр по городу, если адрес не указан
+                pass
+            elif city not in address:
                 return False
         
         return True
