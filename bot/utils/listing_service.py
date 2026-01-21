@@ -43,6 +43,9 @@ class ListingService:
         """
         all_listings: List[Dict] = []
         
+        # Получаем город из фильтра для передачи в парсеры
+        city = filter_obj.filters.get('city') if hasattr(filter_obj, 'filters') else None
+        
         # Парсинг со всех сайтов (всегда парсим все источники)
         try:
             listings = await self.onliner_parser.parse_listings(settings.onliner_url)
@@ -52,7 +55,7 @@ class ListingService:
             logger.error(f"Ошибка парсинга Onliner: {e}")
         
         try:
-            listings = await self.kufar_parser.parse_listings(settings.kufar_url)
+            listings = await self.kufar_parser.parse_listings(settings.kufar_url, city=city)
             all_listings.extend(listings)
             logger.info(f"Получено {len(listings)} объявлений с Kufar")
         except Exception as e:

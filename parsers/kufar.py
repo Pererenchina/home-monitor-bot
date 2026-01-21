@@ -12,6 +12,34 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
+def _city_to_url_format(city: Optional[str]) -> str:
+    """
+    Преобразовать название города в формат URL для Kufar.
+    
+    Args:
+        city: Название города (например, "Минск", "Брест")
+    
+    Returns:
+        str: Город в формате URL (например, "minsk", "brest")
+    """
+    if not city:
+        return "minsk"  # По умолчанию Минск
+    
+    # Словарь соответствий городов
+    city_map = {
+        'минск': 'minsk',
+        'брест': 'brest',
+        'витебск': 'vitebsk',
+        'гомель': 'gomel',
+        'гродно': 'grodno',
+        'могилев': 'mogilev',
+        'могилёв': 'mogilev',
+    }
+    
+    city_lower = city.lower().strip()
+    return city_map.get(city_lower, 'minsk')  # По умолчанию Минск, если город не найден
+
+
 class KufarParser(BaseParser):
     """Парсер для Kufar.by с использованием Selenium."""
     
@@ -19,26 +47,33 @@ class KufarParser(BaseParser):
         """Инициализация парсера."""
         BaseParser.__init__(self)
         self.selenium_parser = SeleniumBaseParser()
+        self.current_city = "minsk"  # По умолчанию Минск
     
     def __del__(self):
         """Деструктор - закрываем Selenium драйвер."""
         if hasattr(self, 'selenium_parser'):
             self.selenium_parser.close()
     
-    async def parse_listings(self, url: str) -> List[Dict]:
+    async def parse_listings(self, url: str, city: Optional[str] = None) -> List[Dict]:
         """
         Парсинг объявлений с Kufar.
         
         Args:
             url: Базовый URL Kufar
+            city: Название города (например, "Минск", "Брест"). По умолчанию "Минск"
         
         Returns:
             List[Dict]: Список объявлений
         """
-        # Используем правильный URL для аренды квартир в Минске
-        # cat=1010 - категория квартиры, typ=sell - продажа, но нам нужна аренда
-        # Для аренды используем другой URL формат
-        search_url = f"{url}l/minsk/snyat/kvartiru"
+        # Преобразуем город в формат URL
+        city_url = _city_to_url_format(city)
+        
+        # Используем правильный URL для аренды квартир
+        # Для аренды используем формат: /l/{city}/snyat/kvartiru
+        search_url = f"{url}l/{city_url}/snyat/kvartiru"
+        
+        # Сохраняем город для использования при формировании ссылок
+        self.current_city = city_url
         
         # Используем Selenium для получения HTML (динамическая загрузка)
         # Увеличиваем время ожидания для Kufar, так как он загружает объявления динамически
@@ -140,7 +175,7 @@ class KufarParser(BaseParser):
                     else:
                         # Если контейнер не найден, ищем данные в тексте страницы по ID
                         # Пробуем найти упоминание этого ID в тексте или скриптах
-                        href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{ad_id}'
+                        href = f'https://re.kufar.by/vi/{self.current_city}/snyat/kvartiru/{ad_id}'
                         # Ищем в тексте страницы данные об этом объявлении
                         # (Kufar может хранить данные в JSON в скриптах)
                         listing_data = None
@@ -265,7 +300,7 @@ class KufarParser(BaseParser):
                         # Очищаем ID от лишних символов (оставляем только цифры)
                         listing_id_clean = ''.join(c for c in listing_path if c.isdigit())
                         if listing_id_clean:
-                            href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{listing_id_clean}'
+                            href = f'https://re.kufar.by/vi/{self.current_city}/snyat/kvartiru/{listing_id_clean}'
                         else:
                             return None
             else:
@@ -398,7 +433,7 @@ class KufarParser(BaseParser):
                     data_id_clean = ''.join(c for c in data_id_clean if c.isdigit())
                     if data_id_clean:
                         int(data_id_clean)  # Проверяем, что это число
-                        href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{data_id_clean}'
+                        href = f'https://re.kufar.by/vi/{self.current_city}/snyat/kvartiru/{data_id_clean}'
                         data_id = data_id_clean
                     else:
                         data_id = None
@@ -443,7 +478,7 @@ class KufarParser(BaseParser):
                         # Очищаем ID от лишних символов (оставляем только цифры)
                         listing_id_clean = ''.join(c for c in listing_path if c.isdigit())
                         if listing_id_clean:
-                            href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{listing_id_clean}'
+                            href = f'https://re.kufar.by/vi/{self.current_city}/snyat/kvartiru/{listing_id_clean}'
                         else:
                             return None
             
@@ -455,7 +490,7 @@ class KufarParser(BaseParser):
                     data_id_clean = ''.join(c for c in data_id_clean if c.isdigit())
                     if data_id_clean:
                         int(data_id_clean)  # Проверяем, что это число
-                        href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{data_id_clean}'
+                        href = f'https://re.kufar.by/vi/{self.current_city}/snyat/kvartiru/{data_id_clean}'
                     else:
                         return None
                 except (ValueError, TypeError):
@@ -562,7 +597,7 @@ class KufarParser(BaseParser):
                 return None
             
             # Формируем правильную ссылку
-            href = f'https://re.kufar.by/vi/minsk/snyat/kvartiru/{ad_id_clean}'
+            href = f'https://re.kufar.by/vi/{self.current_city}/snyat/kvartiru/{ad_id_clean}'
             
             # Извлекаем данные из JSON
             subject = ad_data.get('subject', '') or ad_data.get('title', '') or ad_data.get('name', '')
