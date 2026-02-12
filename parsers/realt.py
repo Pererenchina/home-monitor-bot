@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class RealtParser(BaseParser):
-    """Парсер для Realt.by."""
+    """Парсер для Realt.by (загрузка через Chromium при передаче selenium_parser)."""
+    
+    def __init__(self, selenium_parser=None):
+        super().__init__(selenium_parser=selenium_parser)
     
     async def parse_listings(self, url: str) -> List[Dict]:
         """
@@ -27,7 +30,7 @@ class RealtParser(BaseParser):
         # URL для аренды квартир в Минске
         search_url = f"{url}rent/flat/minsk"
         
-        html = await self.fetch_page(search_url)
+        html = await self.fetch_page_prefer_browser(search_url, wait_time=10)
         if not html:
             return []
         
@@ -159,8 +162,8 @@ class RealtParser(BaseParser):
             if '/rent/offices/' in href:
                 return None
             
-            # Загружаем страницу объявления для извлечения данных
-            listing_html = await self.fetch_page(href)
+            # Загружаем страницу объявления через Chromium (меньше блокировок)
+            listing_html = await self.fetch_page_prefer_browser(href, wait_time=8)
             if listing_html:
                 listing_soup = BeautifulSoup(listing_html, 'lxml')
                 text = listing_soup.get_text(' ', strip=True)

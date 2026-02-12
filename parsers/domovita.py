@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class DomovitaParser(BaseParser):
-    """Парсер для Domovita.by."""
+    """Парсер для Domovita.by (загрузка через Chromium при передаче selenium_parser)."""
+    
+    def __init__(self, selenium_parser=None):
+        super().__init__(selenium_parser=selenium_parser)
     
     async def parse_listings(self, url: str) -> List[Dict]:
         """
@@ -25,7 +28,7 @@ class DomovitaParser(BaseParser):
         Returns:
             List[Dict]: Список объявлений
         """
-        html = await self.fetch_page(url)
+        html = await self.fetch_page_prefer_browser(url, wait_time=10)
         if not html:
             return []
         
@@ -194,9 +197,9 @@ class DomovitaParser(BaseParser):
             else:
                 return None
             
-            # Загружаем страницу объявления для извлечения данных
+            # Загружаем страницу объявления через Chromium (меньше блокировок)
             try:
-                listing_html = await self.fetch_page(href)
+                listing_html = await self.fetch_page_prefer_browser(href, wait_time=8)
             except Exception as e:
                 logger.warning(f"Не удалось загрузить страницу объявления Domovita {href}: {e}")
                 listing_html = None

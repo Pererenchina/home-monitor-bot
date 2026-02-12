@@ -1,9 +1,35 @@
 """Настройки приложения."""
 import os
+from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 
-load_dotenv()
+
+def _load_dotenv_safe() -> None:
+    """Загрузить .env с учётом разных кодировок (UTF-8, UTF-16 на Windows)."""
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.is_file():
+        load_dotenv()
+        return
+    for encoding in ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "cp1251"):
+        try:
+            text = env_path.read_text(encoding=encoding)
+            for line in text.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, _, value = line.partition("=")
+                    key, value = key.strip(), value.strip().strip("'\"").strip()
+                    if key:
+                        os.environ.setdefault(key, value)
+            return
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    load_dotenv(env_path)
+
+
+_load_dotenv_safe()
 
 
 class Settings:

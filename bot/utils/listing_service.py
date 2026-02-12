@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict
 
 from parsers import OnlinerParser, KufarParser, RealtParser, DomovitaParser
+from parsers.selenium_base import SeleniumBaseParser
 from filters import ListingFilter
 from database import Database
 from config import settings
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class ListingService:
-    """Сервис для получения и фильтрации объявлений."""
+    """Сервис для получения и фильтрации объявлений (один общий Chromium — меньше блокировок)."""
     
     def __init__(self, db: Database) -> None:
         """
@@ -21,10 +22,12 @@ class ListingService:
             db: Экземпляр базы данных
         """
         self.db = db
-        self.onliner_parser = OnlinerParser()
-        self.kufar_parser = KufarParser()
-        self.realt_parser = RealtParser()
-        self.domovita_parser = DomovitaParser()
+        # Один общий браузер Chromium для всех парсеров — меньше блокировок, один сеанс
+        self._browser = SeleniumBaseParser(shared=True)
+        self.onliner_parser = OnlinerParser(selenium_parser=self._browser)
+        self.kufar_parser = KufarParser(selenium_parser=self._browser)
+        self.realt_parser = RealtParser(selenium_parser=self._browser)
+        self.domovita_parser = DomovitaParser(selenium_parser=self._browser)
     
     async def fetch_and_filter_listings(
         self,

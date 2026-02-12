@@ -41,17 +41,18 @@ def _city_to_url_format(city: Optional[str]) -> str:
 
 
 class KufarParser(BaseParser):
-    """Парсер для Kufar.by с использованием Selenium."""
+    """Парсер для Kufar.by с использованием Chromium (общий браузер при передаче selenium_parser)."""
     
-    def __init__(self):
-        """Инициализация парсера."""
-        BaseParser.__init__(self)
-        self.selenium_parser = SeleniumBaseParser()
+    def __init__(self, selenium_parser=None):
+        """Инициализация парсера. Если передан selenium_parser — используется общий Chromium."""
+        BaseParser.__init__(self, selenium_parser=selenium_parser)
+        self.selenium_parser = selenium_parser or SeleniumBaseParser(shared=True)
+        self._own_selenium = selenium_parser is None
         self.current_city = "minsk"  # По умолчанию Минск
     
     def __del__(self):
-        """Деструктор - закрываем Selenium драйвер."""
-        if hasattr(self, 'selenium_parser'):
+        """Деструктор — закрываем драйвер только если создавали сами."""
+        if getattr(self, '_own_selenium', True) and hasattr(self, 'selenium_parser'):
             self.selenium_parser.close()
     
     async def parse_listings(self, url: str, city: Optional[str] = None) -> List[Dict]:

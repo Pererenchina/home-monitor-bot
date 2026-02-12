@@ -13,16 +13,17 @@ logger = logging.getLogger(__name__)
 
 
 class OnlinerParser(BaseParser):
-    """Парсер для Onliner.by с использованием Selenium."""
+    """Парсер для Onliner.by с использованием Chromium (общий браузер при передаче selenium_parser)."""
     
-    def __init__(self):
-        """Инициализация парсера."""
-        BaseParser.__init__(self)
-        self.selenium_parser = SeleniumBaseParser()
+    def __init__(self, selenium_parser=None):
+        """Инициализация парсера. Если передан selenium_parser — используется общий Chromium."""
+        BaseParser.__init__(self, selenium_parser=selenium_parser)
+        self.selenium_parser = selenium_parser or SeleniumBaseParser(shared=True)
+        self._own_selenium = selenium_parser is None
     
     def __del__(self):
-        """Деструктор - закрываем Selenium драйвер."""
-        if hasattr(self, 'selenium_parser'):
+        """Деструктор — закрываем драйвер только если создавали сами."""
+        if getattr(self, '_own_selenium', True) and hasattr(self, 'selenium_parser'):
             self.selenium_parser.close()
     
     async def parse_listings(self, url: str) -> List[Dict]:
@@ -332,8 +333,8 @@ class OnlinerParser(BaseParser):
             if not href or href == base_url or '/ak/apartments/' not in href:
                 return None
             
-            # Загружаем страницу объявления для извлечения данных
-            listing_html = await self.fetch_page(href)
+            # Загружаем страницу объявления через Chromium (меньше блокировок)
+            listing_html = await self.fetch_page_prefer_browser(href, wait_time=8)
             if listing_html:
                 listing_soup = BeautifulSoup(listing_html, 'lxml')
                 

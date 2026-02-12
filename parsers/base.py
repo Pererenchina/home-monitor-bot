@@ -14,14 +14,20 @@ logger = logging.getLogger(__name__)
 class BaseParser(ABC):
     """Базовый абстрактный класс для парсеров объявлений."""
     
-    def __init__(self) -> None:
-        """Инициализация парсера."""
+    def __init__(self, selenium_parser=None) -> None:
+        """
+        Инициализация парсера.
+        
+        Args:
+            selenium_parser: Опционально — общий парсер на Chromium для загрузки страниц (меньше блокировок).
+        """
         self.headers = {
             'User-Agent': settings.user_agent,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
         }
         self.timeout = aiohttp.ClientTimeout(total=settings.http_timeout)
+        self.selenium_parser = selenium_parser
     
     async def fetch_page(self, url: str) -> Optional[str]:
         """
@@ -49,6 +55,15 @@ class BaseParser(ABC):
         except Exception as e:
             logger.error(f"Неожиданная ошибка при получении {url}: {e}")
         return None
+    
+    async def fetch_page_prefer_browser(self, url: str, wait_time: int = 8) -> Optional[str]:
+        """
+        Загрузить страницу: через Chromium, если передан selenium_parser, иначе через aiohttp.
+        Использование браузера снижает количество блокировок.
+        """
+        if self.selenium_parser:
+            return await self.selenium_parser.fetch_page_selenium(url, wait_time=wait_time)
+        return await self.fetch_page(url)
     
     @abstractmethod
     async def parse_listings(self, url: str) -> List[Dict]:
